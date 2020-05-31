@@ -6,6 +6,7 @@ require (
 	github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5 // indirect
 	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2 // indirect
 	github.com/armon/go-metrics v0.3.3 // indirect
+	github.com/avast/retry-go v2.6.0+incompatible
 	github.com/aws/aws-sdk-go v1.31.7 // indirect
 	github.com/container-storage-interface/spec v1.2.0 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect

@@ -3,6 +3,8 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/smintz/similarbalancer/structs"
@@ -24,6 +26,14 @@ func (c *Client) ChangePassword(username, password string) error {
 }
 
 func (c *Client) Login(username string) error {
-	_, err := http.Get(c.BaseURL + "/login?username=" + username)
+	r, err := http.Get(c.BaseURL + "/login?username=" + username)
+	if err != nil {
+		return err
+	}
+	log.Println(r)
+	if r.StatusCode > 299 {
+		return fmt.Errorf("Status code is %v (%v)", r.StatusCode, r.Status)
+	}
+
 	return err
 }
