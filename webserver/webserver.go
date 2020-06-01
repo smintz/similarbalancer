@@ -48,7 +48,7 @@ func (s *WebServer) Register(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	log.Println("Register request with", u)
+	log.Println(s.listenAddress, "Register request with", u)
 
 	jsonBytes, _ := json.Marshal(u)
 	err = ioutil.WriteFile(filepath.Join(s.basePath, u.Username), jsonBytes, os.ModePerm)
@@ -57,6 +57,7 @@ func (s *WebServer) Register(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	w.WriteHeader(201)
 	fmt.Fprintf(w, "Operation for %s succeeded", u.Username)
 
 }

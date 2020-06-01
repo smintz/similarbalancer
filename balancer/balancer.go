@@ -52,6 +52,13 @@ type ServerPool struct {
 	current  uint64
 }
 
+func NewServerPool(b []*Backend) *ServerPool {
+	return &ServerPool{
+		backends: b,
+		current:  0,
+	}
+}
+
 func (s *ServerPool) Append(b *Backend) {
 	s.backends = append(s.backends, b)
 }
@@ -78,30 +85,32 @@ func (s *ServerPool) GetNextPeer() *Backend {
 	return nil
 }
 
-type WrappedResponseWriter struct {
-	sent   bool
+type NopResponseWriter struct {
 	status int
-	writer http.ResponseWriter
+	mux    sync.RWMutex
 }
 
-func (w *WrappedResponseWriter) Write(b []byte) (int, error) {
-	log.Println("got response")
-	if w.sent {
-		log.Println("response alredy sent")
-		return len(b), nil
-	}
-	return w.writer.Write(b)
+func NewNopResponseWriter() *NopResponseWriter {
+	return &NopResponseWriter{status: 0}
 }
 
-func (w *WrappedResponseWriter) Header() http.Header {
-	return w.writer.Header()
+func (w *NopResponseWriter) Write(b []byte) (int, error) {
+	return len(b), nil
+}
+func (w *NopResponseWriter) WriteHeader(code int) {
+	w.mux.Lock()
+	w.status = code
+	w.mux.Unlock()
 }
 
-func (w *WrappedResponseWriter) WriteHeader(statusCode int) {
-	log.Println("writing header", statusCode)
-	w.writer.WriteHeader(statusCode)
-	w.status = statusCode
-	w.sent = true
+func (w *NopResponseWriter) Header() http.Header {
+	return http.Header{}
+}
+
+func (w *NopResponseWriter) Status() int {
+	w.mux.RLock()
+	defer w.mux.RUnlock()
+	return w.status
 }
 
 func (s *ServerPool) Broadcast(w http.ResponseWriter, r *http.Request) error {
@@ -113,18 +122,21 @@ func (s *ServerPool) Broadcast(w http.ResponseWriter, r *http.Request) error {
 	var wg sync.WaitGroup
 	for _, peer := range s.backends {
 		wg.Add(1)
+		tries := 0
 		go func(p *Backend) {
 			retry.Do(func() error {
 				// ctx, _ := context.WithTimeout(r.Context(), 5*time.Second)
 				ctx := context.TODO()
 				rr := r.Clone(ctx)
 				rr.Body = ioutil.NopCloser(bytes.NewReader(b))
-				ww := &WrappedResponseWriter{sent: false, writer: w}
+				ww := NewNopResponseWriter()
 
+				tries++
+				log.Println("trying", p.URL, "tries:", tries)
 				p.ReverseProxy.ServeHTTP(ww, rr)
-				if ww.status > 210 {
-					log.Println(p.URL, "failed with status", ww.status)
-					return fmt.Errorf("Status is %v", ww.status)
+				if ww.Status() != 201 {
+					log.Println(p.URL, "failed with status", ww.Status())
+					return fmt.Errorf("Status is %v", ww.Status())
 				}
 
 				return nil
@@ -141,18 +153,31 @@ type Server struct {
 	pool *ServerPool
 }
 
+func NewServer(p *ServerPool) *Server {
+	return &Server{
+		pool: p,
+	}
+}
+
 // lb load balances the incoming request
-func (s *Server) lb(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "GET":
-		peer := s.pool.GetNextPeer()
-		if peer != nil {
-			peer.ReverseProxy.ServeHTTP(w, r)
-			return
-		}
-		http.Error(w, "Service not available", http.StatusServiceUnavailable)
-	case "POST":
-		s.pool.Broadcast(w, r)
+func (s *Server) Balancer(w http.ResponseWriter, r *http.Request) {
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
+	r.Body = ioutil.NopCloser(bytes.NewReader(b))
+
+	peer := s.pool.GetNextPeer()
+	if peer != nil {
+		peer.ReverseProxy.ServeHTTP(w, r)
+	}
+	http.Error(w, "Service not available", http.StatusServiceUnavailable)
+	if r.Method == "POST" {
+		log.Println("got post message")
+		rr := r.Clone(context.TODO())
+		rr.Body = ioutil.NopCloser(bytes.NewReader(b))
+
+		s.pool.Broadcast(w, rr)
 	}
 }
 

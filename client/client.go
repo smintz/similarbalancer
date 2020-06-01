@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
+	"time"
 
+	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/smintz/similarbalancer/structs"
 )
 
@@ -36,4 +39,17 @@ func (c *Client) Login(username string) error {
 	}
 
 	return err
+}
+
+func (c *Client) RegisterRandom() (*structs.LoginDetails, error) {
+	rand.Seed(time.Now().UTC().UnixNano())
+	user := petname.Generate(2, "-")
+	password := petname.Generate(2, "-")
+
+	err := c.Register(user, password)
+	if err != nil {
+		return nil, err
+	}
+
+	return &structs.LoginDetails{Username: user, Password: password}, nil
 }

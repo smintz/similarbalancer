@@ -11,6 +11,7 @@ require (
 	github.com/container-storage-interface/spec v1.2.0 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/docker/docker v1.13.1 // indirect
+	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/fsouza/go-dockerclient v1.6.5 // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0 // indirect
