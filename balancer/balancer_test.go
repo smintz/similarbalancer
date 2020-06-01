@@ -45,7 +45,7 @@ func TestRunTest(t *testing.T) {
 
 func TestMany(t *testing.T) {
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 50; i++ {
 		wg.Add(1)
 		go func() {
 			c := client.Client{BaseURL: "http://localhost:10000"}
