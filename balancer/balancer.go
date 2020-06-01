@@ -142,7 +142,7 @@ func (s *ServerPool) Broadcast(w http.ResponseWriter, r *http.Request) error {
 				log.Println("trying", p.URL, "tries:", tries)
 				p.ReverseProxy.ServeHTTP(ww, rr)
 				if ww.Status() != 201 {
-					retriesCount.WithLabelValues(rr.Method, rr.URL.Path, peer.URL.String()).Inc()
+					retriesCount.WithLabelValues(rr.Method, rr.URL.Path, p.URL.String()).Inc()
 					log.Println(p.URL, "failed with status", ww.Status())
 					return fmt.Errorf("Status is %v", ww.Status())
 				}
