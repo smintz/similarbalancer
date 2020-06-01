@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/smintz/similarbalancer/balancer"
 	"github.com/smintz/similarbalancer/webserver"
 )
@@ -48,6 +49,10 @@ func main() {
 	pool := balancer.NewServerPool(BACKENDS)
 
 	s := balancer.NewServer(pool)
-	server := http.Server{Addr: *ADDR, Handler: http.HandlerFunc(s.Balancer)}
-	server.ListenAndServe()
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/", s.Balancer)
+	// server := http.Server{Addr: *ADDR, Handler: http.HandlerFunc(s.Balancer)}
+	// server.ListenAndServe()
+	http.ListenAndServe(*ADDR, mux)
 }

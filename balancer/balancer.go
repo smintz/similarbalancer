@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 
 	"github.com/avast/retry-go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type Backend struct {
@@ -113,6 +115,11 @@ func (w *NopResponseWriter) Status() int {
 	return w.status
 }
 
+var retriesCount = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "balancer_retries_count",
+	Help: "A Counter to count the number of retries to each backend",
+}, []string{"method", "path", "backend"})
+
 func (s *ServerPool) Broadcast(w http.ResponseWriter, r *http.Request) error {
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -135,6 +142,7 @@ func (s *ServerPool) Broadcast(w http.ResponseWriter, r *http.Request) error {
 				log.Println("trying", p.URL, "tries:", tries)
 				p.ReverseProxy.ServeHTTP(ww, rr)
 				if ww.Status() != 201 {
+					retriesCount.WithLabelValues(rr.Method, rr.URL.Path, peer.URL.String()).Inc()
 					log.Println(p.URL, "failed with status", ww.Status())
 					return fmt.Errorf("Status is %v", ww.Status())
 				}
@@ -159,6 +167,11 @@ func NewServer(p *ServerPool) *Server {
 	}
 }
 
+var histogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name: "balancer_requests_seconds",
+	Help: "An hitogram observing time to server requests by backends",
+}, []string{"method", "path", "backend"})
+
 // lb load balances the incoming request
 func (s *Server) Balancer(w http.ResponseWriter, r *http.Request) {
 	b, err := ioutil.ReadAll(r.Body)
@@ -169,7 +182,9 @@ func (s *Server) Balancer(w http.ResponseWriter, r *http.Request) {
 
 	peer := s.pool.GetNextPeer()
 	if peer != nil {
+		timer := prometheus.NewTimer(histogram.WithLabelValues(r.Method, r.URL.Path, peer.URL.String()))
 		peer.ReverseProxy.ServeHTTP(w, r)
+		timer.ObserveDuration()
 	}
 	http.Error(w, "Service not available", http.StatusServiceUnavailable)
 	if r.Method == "POST" {

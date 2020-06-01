@@ -33,6 +33,7 @@ require (
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/mapstructure v1.3.1 // indirect
+	github.com/prometheus/client_golang v1.4.0
 	github.com/shirou/gopsutil v2.20.4+incompatible // indirect
 	github.com/stretchr/testify v1.6.0 // indirect
 	github.com/zclconf/go-cty v1.4.2 // indirect
